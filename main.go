@@ -27,7 +27,7 @@ func (p *Page) toCount() {
 	p.Table = make(map[string]int)
 
 	for i := range words {
-		p.Table[words[i]]++
+		p.Table[strings.ToLower(words[i])]++
 	}
 }
 
