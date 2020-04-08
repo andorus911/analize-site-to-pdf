@@ -6,6 +6,9 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
+
+	"strconv"
 	"strings"
 	"unicode"
 
@@ -53,6 +56,15 @@ func readSiteHandler(w http.ResponseWriter, r *http.Request) {
 	p, _ := downloadPage(siteUrl)
 
 	p.toCount()
+
+	minOccurrence := 1 // default minimal word occurrence
+	m, _ := url.ParseQuery(r.URL.RawQuery)
+	if m != nil {
+		minOccurrence, _ = strconv.Atoi(m["occ"][0])
+		if minOccurrence <= 0 {
+			minOccurrence = 1
+		}
+	}
 
 	// отправить пдф обратно
 
