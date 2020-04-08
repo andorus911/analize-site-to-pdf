@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"unicode"
 
 	"github.com/grokify/html-strip-tags-go" // => strip
 )
@@ -19,8 +20,11 @@ type Page struct {
 }
 
 func (p *Page) toCount() {
+	f := func(c rune) bool {
+		return !unicode.IsLetter(c) // && !unicode.IsNumber(c)
+	}
+	words := strings.FieldsFunc(strip.StripTags(p.Text), f)
 	p.Table = make(map[string]int)
-	words := strings.Fields(strip.StripTags(p.Text))
 
 	for i := range words {
 		p.Table[words[i]]++
