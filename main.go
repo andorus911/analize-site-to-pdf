@@ -6,6 +6,9 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strings"
+
+	"github.com/grokify/html-strip-tags-go" // => strip
 )
 
 const READ_URL = "/read/"
@@ -16,7 +19,12 @@ type Page struct {
 }
 
 func (p *Page) toCount() {
+	p.Table = make(map[string]int)
+	words := strings.Fields(strip.StripTags(p.Text))
 
+	for i := range words {
+		p.Table[words[i]]++
+	}
 }
 
 func downloadPage(siteUrl string) (*Page, error) {
@@ -33,14 +41,17 @@ func downloadPage(siteUrl string) (*Page, error) {
 		return nil, err
 	}
 
-	fmt.Println(string(body))
 	return &Page{Text: string(body)}, nil
 }
 
 func readSiteHandler(w http.ResponseWriter, r *http.Request) {
 	siteUrl := r.URL.Path[len(READ_URL):]
 	p, _ := downloadPage(siteUrl)
+
+	p.toCount()
+
 	// отправить пдф обратно
+
 	fmt.Fprintf(w, "<h1>Table</h1><div>%s</div>", p.Table)
 }
 
