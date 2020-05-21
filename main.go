@@ -8,12 +8,14 @@ import (
 	"net/http"
 	"net/url"
 
+	"bytes"
 	"sort"
 	"strconv"
 	"strings"
 	"unicode"
 
 	"github.com/grokify/html-strip-tags-go" // => strip
+	"github.com/signintech/gopdf"
 )
 
 const READ_URL = "/read/"
@@ -90,17 +92,39 @@ func readSiteHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sortedPairs := rankByWordCount(p.Table)
-	// TODO отправить пдф обратно
 
-	fmt.Fprintf(w, "<h1>Table</h1><table>")
+	// Создание pdf
+	pdf := gopdf.GoPdf{}
+	pdf.Start(gopdf.Config{PageSize: gopdf.Rect{W: 595.28, H: 841.89}}) //595.28, 841.89 = A4
+	pdf.AddPage()
+	err := pdf.AddTTFFont("OPEN SANS", "./ttf/OpenSans-Regular.ttf")
+	if err != nil {
+		log.Print(err.Error())
+		return
+	}
+	err = pdf.SetFont("OPEN SANS", "", 14)
+	if err != nil {
+		log.Print(err.Error())
+		return
+	}
+	pdf.SetGrayFill(0.5)
+
+	fmt.Fprintf(w, "<h1>Table</h1><table>") // Отображение на странице
 
 	for count, pair := range sortedPairs {
+		b := new(bytes.Buffer)
+		fmt.Fprintf(b, "%s: %d", pair.Key, pair.Value)
+		pdf.Cell(nil, b.String())
+		pdf.Br(20)
+
 		fmt.Fprintf(w, "<tr><td>%d</td><td>%s</td></tr>", pair.Value, pair.Key)
 		if count == 10 { // TODO сделать гибче
 			break
 		}
 	}
 	fmt.Fprintf(w, "</table>")
+
+	pdf.WritePdf("stats.pdf")
 }
 
 func main() {
