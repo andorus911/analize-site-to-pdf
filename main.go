@@ -3,10 +3,12 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 
 	"bytes"
 	"sort"
@@ -19,6 +21,7 @@ import (
 )
 
 const READ_URL = "/read/"
+const FILE_NAME = "stats.pdf"
 
 type Page struct {
 	Text  string
@@ -91,9 +94,10 @@ func readSiteHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// sort by count
 	sortedPairs := rankByWordCount(p.Table)
 
-	// Создание pdf
+	// создание пдф
 	pdf := gopdf.GoPdf{}
 	pdf.Start(gopdf.Config{PageSize: gopdf.Rect{W: 595.28, H: 841.89}}) //595.28, 841.89 = A4
 	pdf.AddPage()
@@ -109,22 +113,45 @@ func readSiteHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	pdf.SetGrayFill(0.5)
 
-	fmt.Fprintf(w, "<h1>Table</h1><table>") // Отображение на странице
-
+	// write to stream
 	for count, pair := range sortedPairs {
 		b := new(bytes.Buffer)
 		fmt.Fprintf(b, "%s: %d", pair.Key, pair.Value)
 		pdf.Cell(nil, b.String())
 		pdf.Br(20)
 
-		fmt.Fprintf(w, "<tr><td>%d</td><td>%s</td></tr>", pair.Value, pair.Key)
 		if count == 10 { // TODO сделать гибче
 			break
 		}
 	}
-	fmt.Fprintf(w, "</table>")
 
-	pdf.WritePdf("stats.pdf")
+	// write to pdf
+	pdf.WritePdf(FILE_NAME)
+
+	// open pdf
+	Openfile, err := os.Open(FILE_NAME)
+	defer Openfile.Close()
+	if err != nil {
+		log.Print(err.Error())
+		return
+	}
+
+	FileHeader := make([]byte, 512)
+
+	Openfile.Read(FileHeader)
+
+	FileContentType := http.DetectContentType(FileHeader)
+
+	FileStat, _ := Openfile.Stat() //Get info from file
+	FileSize := strconv.FormatInt(FileStat.Size(), 10)
+
+	w.Header().Set("Content-Disposition", "attachment; filename="+FILE_NAME)
+	w.Header().Set("Content-Type", FileContentType)
+	w.Header().Set("Content-Length", FileSize)
+
+	Openfile.Seek(0, 0)
+	io.Copy(w, Openfile) //'Copy' the file to the client
+	return
 }
 
 func main() {
